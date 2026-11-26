@@ -64,29 +64,30 @@ export function AuthProvider({ children }) {
     const params = new URLSearchParams(window.location.search);
     const urlIdToken = params.get('idToken');
     const urlEmail = params.get('email');
-    console.log('[SSO] AuthProvider mount — urlIdToken present:', !!urlIdToken, '| urlEmail:', urlEmail);
+    const log = (msg) => { console.log('[SSO]', msg); try { sessionStorage.setItem('sso_debug_' + Date.now(), '[SSO] ' + msg); } catch {} };
+    log('AuthProvider mount — urlIdToken present: ' + !!urlIdToken + ' | urlEmail: ' + urlEmail);
 
     if (urlIdToken && urlEmail) {
       const { valid } = verifyUrlIdToken(urlIdToken);
       window.history.replaceState({}, '', window.location.pathname);
       if (valid) {
-        console.log('[SSO] token valid — persisting session for', urlEmail);
+        log('token valid — persisting session for ' + urlEmail);
         persistSsoSession(urlIdToken, urlEmail);
         clearLegacyAuthStorage();
         localStorage.setItem('advisorUserId', urlEmail);
         setUserId(urlEmail);
         setIsAuthenticated(true);
-        console.log('[SSO] setIsAuthenticated(true) called');
+        log('setIsAuthenticated(true) done');
       } else {
-        console.warn('[SSO] token invalid — redirecting to login');
+        log('token invalid — redirecting to login');
         window.location.replace('/login?sessionExpired=1');
         return;
       }
     } else {
-      console.log('[SSO] no URL params — normal flow');
+      log('no URL params — normal flow');
     }
     setReady(true);
-    console.log('[SSO] setReady(true) called');
+    log('setReady(true) done');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const login = (email) => {
@@ -113,8 +114,15 @@ export function AuthProvider({ children }) {
     clearLegacyAuthStorage();
     const cookieOk = hasAuthCookies() && !isAuthSessionExpired(SESSION_TIMEOUT);
     const ssoOk = hasSsoSession() && !isSsoSessionExpired(SESSION_TIMEOUT);
-    console.log('[SSO] session guard — cookieOk:', cookieOk, '| ssoOk:', ssoOk, '| isAuthenticated:', isAuthenticated);
-    if (!cookieOk && !ssoOk) { console.warn('[SSO] session guard: neither cookie nor SSO ok — setIsAuthenticated(false)'); setIsAuthenticated(false); return; }
+    const msg = 'session guard — cookieOk:' + cookieOk + ' ssoOk:' + ssoOk + ' isAuthenticated:' + isAuthenticated;
+    console.log('[SSO]', msg);
+    try { sessionStorage.setItem('sso_debug_' + Date.now(), '[SSO] ' + msg); } catch {}
+    if (!cookieOk && !ssoOk) {
+      const m = 'session guard: KILLING session — setIsAuthenticated(false)';
+      console.warn('[SSO]', m);
+      try { sessionStorage.setItem('sso_debug_' + Date.now(), '[SSO] ' + m); } catch {}
+      setIsAuthenticated(false); return;
+    }
     if (!isAuthenticated) return;
 
     resetTimer();
