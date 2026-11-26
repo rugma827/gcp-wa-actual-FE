@@ -9,10 +9,12 @@ let _sessionInvalidating = false;
 function handleSessionInvalidated() {
   if (_sessionInvalidating) return;
   const ssoToken = localStorage.getItem('wa_sso_access_token');
+  console.warn('[SSO] handleSessionInvalidated called — ssoToken present:', !!ssoToken);
   if (ssoToken) {
     try {
       const p = JSON.parse(atob(ssoToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      if (p.exp > Math.floor(Date.now() / 1000)) return; // token still valid, ignore 401
+      console.warn('[SSO] ssoToken exp:', p.exp, 'now:', Math.floor(Date.now() / 1000), 'valid:', p.exp > Math.floor(Date.now() / 1000));
+      if (p.exp > Math.floor(Date.now() / 1000)) { console.log('[SSO] token still valid — ignoring 401'); return; }
     } catch { /* malformed — fall through */ }
     ['wa_sso_access_token', 'wa_sso_session_start', 'wa_sso_email'].forEach(k => localStorage.removeItem(k));
     localStorage.removeItem('googleCalConnected');
@@ -41,6 +43,7 @@ window.fetch = async (input, init = {}) => {
         isSsoValid = p.exp > Math.floor(Date.now() / 1000);
       } catch { /* malformed */ }
     }
+    console.log('[SSO] fetch interceptor — url:', url, '| isSsoValid:', isSsoValid, '| isAccessTokenExpired:', isAccessTokenExpired());
     if (!isSsoValid && isAccessTokenExpired()) {
       const refreshed = await refreshFirebaseToken();
         if (refreshed) {
@@ -62,6 +65,7 @@ window.fetch = async (input, init = {}) => {
     try {
       const clone = response.clone();
       const body = await clone.json();
+      console.warn('[SSO] 401 response body:', JSON.stringify(body), 'url:', url);
       if (body?.detail === 'Session invalidated') {
         handleSessionInvalidated();
       }

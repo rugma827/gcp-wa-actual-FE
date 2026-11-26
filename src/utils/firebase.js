@@ -60,10 +60,20 @@ export function verifyUrlIdToken(idToken) {
   try {
     const payload = JSON.parse(atob(idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
     const now = Math.floor(Date.now() / 1000);
-    if (payload.aud !== import.meta.env.VITE_FIREBASE_PROJECT_ID) return { valid: false };
-    if (payload.exp <= now) return { valid: false };
+    console.log('[SSO] verifyUrlIdToken payload:', { aud: payload.aud, exp: payload.exp, now, email: payload.email });
+    console.log('[SSO] expected aud:', import.meta.env.VITE_FIREBASE_PROJECT_ID);
+    if (payload.aud !== import.meta.env.VITE_FIREBASE_PROJECT_ID) {
+      console.warn('[SSO] FAIL: aud mismatch', payload.aud, '!==', import.meta.env.VITE_FIREBASE_PROJECT_ID);
+      return { valid: false };
+    }
+    if (payload.exp <= now) {
+      console.warn('[SSO] FAIL: token expired', payload.exp, '<=', now);
+      return { valid: false };
+    }
+    console.log('[SSO] token valid ✅');
     return { valid: true, email: payload.email || '' };
-  } catch {
+  } catch (e) {
+    console.error('[SSO] verifyUrlIdToken exception:', e);
     return { valid: false };
   }
 }
