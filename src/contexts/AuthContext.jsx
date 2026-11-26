@@ -19,10 +19,21 @@ const SESSION_TIMEOUT = 30 * 60 * 1000;        // 30-min idle timeout
 const ABSOLUTE_SESSION_TIMEOUT = 8 * 60 * 60 * 1000; // 8-hour absolute timeout
 
 export function AuthProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => (hasAuthCookies() && !isAuthSessionExpired(SESSION_TIMEOUT)) ||
-          (hasSsoSession() && !isSsoSessionExpired(SESSION_TIMEOUT))
-  );
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    // If SSO token exists but is JWT-expired, clear it immediately
+    if (hasSsoSession()) {
+      const token = localStorage.getItem('wa_sso_access_token') || '';
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.exp <= Math.floor(Date.now() / 1000)) {
+          clearSsoSession();
+          return false;
+        }
+      } catch { clearSsoSession(); return false; }
+      return !isSsoSessionExpired(SESSION_TIMEOUT);
+    }
+    return hasAuthCookies() && !isAuthSessionExpired(SESSION_TIMEOUT);
+  });
   const [userId, setUserId] = useState(
     () => localStorage.getItem('advisorUserId') || getSsoEmail() || ''
   );
