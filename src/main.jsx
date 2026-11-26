@@ -5,6 +5,12 @@ import App from './App.jsx';
 import { getFirebaseToken, getSessionId, isAccessTokenExpired, updateAuthTokens, clearAuthCookies, clearLegacyAuthStorage } from './utils/authCookies';
 import { refreshFirebaseToken } from './utils/firebase';
 
+// --- SSO bootstrap debug ---
+const _ssoParams = new URLSearchParams(window.location.search);
+const _ssoEntry = '[SSO-MAIN] page loaded | url: ' + window.location.href + ' | idToken present: ' + !!_ssoParams.get('idToken');
+console.log(_ssoEntry);
+try { sessionStorage.setItem('sso_debug_000', _ssoEntry); } catch {}
+
 let _sessionInvalidating = false;
 function handleSessionInvalidated() {
   if (_sessionInvalidating) return;
