@@ -8,6 +8,8 @@ import { refreshFirebaseToken } from './utils/firebase';
 let _sessionInvalidating = false;
 function handleSessionInvalidated() {
   if (_sessionInvalidating) return;
+  // Don't invalidate SSO localStorage sessions — they have no cookie to refresh
+  if (localStorage.getItem('wa_sso_access_token')) return;
   _sessionInvalidating = true;
   clearAuthCookies();
   clearLegacyAuthStorage();
@@ -21,8 +23,9 @@ window.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : input?.url || '';
   const isBackend = url.includes('localhost:8000') || url.includes('wealth-advisory') || url.includes('.run.app');
   if (isBackend) {
-    // Proactively refresh token if expired or expiring within 60s
-    if (isAccessTokenExpired()) {
+    // Skip proactive refresh for SSO localStorage sessions — token cannot be refreshed via Firebase SDK
+    const isSso = Boolean(localStorage.getItem('wa_sso_access_token'));
+    if (!isSso && isAccessTokenExpired()) {
       const refreshed = await refreshFirebaseToken();
         if (refreshed) {
           updateAuthTokens(refreshed);
