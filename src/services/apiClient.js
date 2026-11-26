@@ -11,9 +11,19 @@
  */
 
 import { API_BASE_URL } from '../config/api';
-import { getFirebaseToken, getSessionId } from '../utils/authCookies';
+import { getFirebaseToken, getSessionId, clearAuthCookies, clearLegacyAuthStorage } from '../utils/authCookies';
 import requestManager from './requestManager';
 import requestQueue from './requestQueue';
+
+let _sessionInvalidating = false;
+function handleSessionInvalidated() {
+  if (_sessionInvalidating) return;
+  _sessionInvalidating = true;
+  clearAuthCookies();
+  clearLegacyAuthStorage();
+  localStorage.removeItem('googleCalConnected');
+  window.location.replace('/login?sessionExpired=1');
+}
 
 class ApiClient {
   constructor() {
@@ -69,6 +79,10 @@ class ApiClient {
 
             // Handle non-OK responses
             if (response.status === 401) {
+              try {
+                const body = await response.clone().json();
+                if (body?.detail === 'Session invalidated') handleSessionInvalidated();
+              } catch { /* ignore */ }
               const error = await this.handleErrorResponse(response);
               throw error;
             }
