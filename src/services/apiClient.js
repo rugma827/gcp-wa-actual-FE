@@ -18,6 +18,18 @@ import requestQueue from './requestQueue';
 let _sessionInvalidating = false;
 function handleSessionInvalidated() {
   if (_sessionInvalidating) return;
+  // For SSO sessions, only invalidate if the token is actually expired
+  const ssoToken = localStorage.getItem('wa_sso_access_token');
+  if (ssoToken) {
+    try {
+      const payload = JSON.parse(atob(ssoToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload.exp > Math.floor(Date.now() / 1000)) return; // token still valid, ignore 401
+    } catch { /* malformed — fall through and clear */ }
+    ['wa_sso_access_token', 'wa_sso_session_start', 'wa_sso_email'].forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem('googleCalConnected');
+    window.location.replace('/login?sessionExpired=1');
+    return;
+  }
   _sessionInvalidating = true;
   clearAuthCookies();
   clearLegacyAuthStorage();
