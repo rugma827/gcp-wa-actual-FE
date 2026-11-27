@@ -39,8 +39,9 @@ import './styles/global.css';
 import './styles/modal.css';
 
 function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, ready } = useAuth();
   const hadSession = hasAuthCookies() || isAuthSessionExpired(30 * 60 * 1000);
+  if (!ready) return null;
   return isAuthenticated ? children : <Navigate to="/login" replace state={{ sessionExpired: hadSession }} />;
 }
 

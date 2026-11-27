@@ -114,6 +114,7 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
+    if (!ready) return; // wait until SSO processing is complete
     clearLegacyAuthStorage();
     const cookieOk = hasAuthCookies() && !isAuthSessionExpired(SESSION_TIMEOUT);
     const ssoOk = hasSsoSession() && !isSsoSessionExpired(SESSION_TIMEOUT);
@@ -150,7 +151,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      isAuthenticated, userId, googleConnected, ssoLoggedOut,
+      isAuthenticated, userId, googleConnected, ssoLoggedOut, ready,
       login, logout: () => logout(userId), setGoogleConnected,
       cockpitReady, setCockpitReady,
     }}>
