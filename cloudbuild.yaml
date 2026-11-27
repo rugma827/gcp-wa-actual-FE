@@ -1,0 +1,23 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '--build-arg'
+      - 'VITE_BACKEND_URL=https://wa-backend-675909555324.us-west1.run.app'
+      - '--build-arg'
+      - 'VITE_WS_BASE_URL=wss://wa-backend-675909555324.us-west1.run.app/api'
+      - '--build-arg'
+      - 'VITE_FIREBASE_API_KEY=AIzaSyB2GpPKkxVrYgqPAlTLhEEvJWDfvirDXeY'
+      - '--build-arg'
+      - 'VITE_FIREBASE_AUTH_DOMAIN=agentic-wealthadvisor.firebaseapp.com'
+      - '--build-arg'
+      - 'VITE_FIREBASE_PROJECT_ID=agentic-wealthadvisor'
+      - '--build-arg'
+      - 'VITE_DUMMY_UI=true'
+      - '--build-arg'
+      - 'FLAG_CIA_GRAPH_SYNC=true'
+      - '-t'
+      - 'gcr.io/agentic-wealthadvisor/wa-suite'
+      - '.'
+images:
+  - 'gcr.io/agentic-wealthadvisor/wa-suite'
