@@ -18,6 +18,12 @@ export function useGoogleAuth({ userId, setGoogleConnected, setSessionExpiredBan
       console.log('[useGoogleAuth] backend unreachable, skipping');
       return;
     }
+    // Already authenticated — set googleConnected so calendar fetches immediately
+    if (res.ok && res.data?.status === 'authenticated') {
+      console.log('[useGoogleAuth] already authenticated, setting googleConnected true');
+      setGoogleConnected(true);
+      return;
+    }
     const url = res.authUrl || res.data?.authorization_url || null;
     console.log('[useGoogleAuth] authUrl extracted:', url ? url.slice(0, 60) + '...' : null);
     if (url) setAuthUrl(url);
