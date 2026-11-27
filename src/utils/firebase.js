@@ -56,32 +56,4 @@ export async function refreshFirebaseToken() {
   }
 }
 
-export function verifyUrlIdToken(idToken) {
-  const log = (msg, data) => {
-    const entry = `[SSO] ${msg} ${data ? JSON.stringify(data) : ''}`;
-    console.log(entry);
-    try { sessionStorage.setItem('sso_debug_' + Date.now(), entry); } catch {}
-  };
-  try {
-    const payload = JSON.parse(atob(idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    const now = Math.floor(Date.now() / 1000);
-    log('verifyUrlIdToken', { aud: payload.aud, exp: payload.exp, now, email: payload.email, expectedAud: import.meta.env.VITE_FIREBASE_PROJECT_ID });
-    if (payload.aud !== import.meta.env.VITE_FIREBASE_PROJECT_ID) {
-      log('FAIL aud mismatch', { got: payload.aud, expected: import.meta.env.VITE_FIREBASE_PROJECT_ID });
-      return { valid: false };
-    }
-    if (payload.exp <= now) {
-      log('FAIL token expired', { exp: payload.exp, now });
-      return { valid: false };
-    }
-    log('token valid OK');
-    return { valid: true, email: payload.email || '' };
-  } catch (e) {
-    const entry = '[SSO] verifyUrlIdToken EXCEPTION: ' + e.message;
-    console.error(entry);
-    try { sessionStorage.setItem('sso_debug_' + Date.now(), entry); } catch {}
-    return { valid: false };
-  }
-}
-
 export { auth };

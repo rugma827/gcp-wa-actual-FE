@@ -5,14 +5,7 @@ import {
   hasAuthCookies,
   isAuthSessionExpired,
   touchAuthSessionStart,
-  persistSsoSession,
-  clearSsoSession,
-  hasSsoSession,
-  getSsoEmail,
-  touchSsoSessionStart,
-  isSsoSessionExpired,
 } from '../utils/authCookies';
-import { verifyUrlIdToken } from '../utils/firebase';
 
 const AuthContext = createContext();
 const SESSION_TIMEOUT = 30 * 60 * 1000;        // 30-min idle timeout
@@ -20,17 +13,14 @@ const ABSOLUTE_SESSION_TIMEOUT = 8 * 60 * 60 * 1000; // 8-hour absolute timeout
 
 export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(
-    () => (hasAuthCookies() && !isAuthSessionExpired(SESSION_TIMEOUT)) ||
-          (hasSsoSession() && !isSsoSessionExpired(SESSION_TIMEOUT))
+    () => hasAuthCookies() && !isAuthSessionExpired(SESSION_TIMEOUT)
   );
   const [userId, setUserId] = useState(
-    () => localStorage.getItem('advisorUserId') || getSsoEmail() || ''
+    () => localStorage.getItem('advisorUserId') || ''
   );
   const [googleConnected, setGoogleConnectedState] = useState(
     () => localStorage.getItem('googleCalConnected') === 'true'
   );
-  const [ready, setReady] = useState(false);
-  const [ssoLoggedOut, setSsoLoggedOut] = useState(false);
   const timerRef = useRef(null);
 
   const absoluteTimerRef = useRef(null);
@@ -38,18 +28,12 @@ export function AuthProvider({ children }) {
   const logout = useCallback((email) => {
     clearTimeout(timerRef.current);
     clearTimeout(absoluteTimerRef.current);
-    const wasSso = hasSsoSession();
     clearAuthCookies();
-    clearSsoSession();
     clearLegacyAuthStorage();
     localStorage.removeItem('googleCalConnected');
     setIsAuthenticated(false);
     setUserId('');
     setGoogleConnectedState(false);
-    if (wasSso) {
-      setSsoLoggedOut(true);
-      try { window.parent.postMessage({ type: 'wa_sso_logout' }, '*'); } catch { /* ignore */ }
-    }
   }, []);
 
   const resetTimer = useCallback(() => {
@@ -59,36 +43,6 @@ export function AuthProvider({ children }) {
   }, [isAuthenticated, logout, userId]);
 
   const absoluteEmailRef = useRef('');
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlIdToken = params.get('idToken');
-    const urlEmail = params.get('email');
-    const log = (msg) => { console.log('[SSO]', msg); try { sessionStorage.setItem('sso_debug_' + Date.now(), '[SSO] ' + msg); } catch {} };
-    log('AuthProvider mount — urlIdToken present: ' + !!urlIdToken + ' | urlEmail: ' + urlEmail);
-
-    if (urlIdToken && urlEmail) {
-      const { valid } = verifyUrlIdToken(urlIdToken);
-      window.history.replaceState({}, '', window.location.pathname);
-      if (valid) {
-        log('token valid — persisting session for ' + urlEmail);
-        persistSsoSession(urlIdToken, urlEmail);
-        clearLegacyAuthStorage();
-        localStorage.setItem('advisorUserId', urlEmail);
-        setUserId(urlEmail);
-        setIsAuthenticated(true);
-        log('setIsAuthenticated(true) done');
-      } else {
-        log('token invalid — redirecting to login');
-        window.location.replace('/login?sessionExpired=1');
-        return;
-      }
-    } else {
-      log('no URL params — normal flow');
-    }
-    setReady(true);
-    log('setReady(true) done');
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const login = (email) => {
     touchAuthSessionStart();
@@ -112,24 +66,23 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     clearLegacyAuthStorage();
-    const cookieOk = hasAuthCookies() && !isAuthSessionExpired(SESSION_TIMEOUT);
-    const ssoOk = hasSsoSession() && !isSsoSessionExpired(SESSION_TIMEOUT);
-    const msg = 'session guard — cookieOk:' + cookieOk + ' ssoOk:' + ssoOk + ' isAuthenticated:' + isAuthenticated;
-    console.log('[SSO]', msg);
-    try { sessionStorage.setItem('sso_debug_' + Date.now(), '[SSO] ' + msg); } catch {}
-    if (!cookieOk && !ssoOk) {
-      const m = 'session guard: KILLING session — setIsAuthenticated(false)';
-      console.warn('[SSO]', m);
-      try { sessionStorage.setItem('sso_debug_' + Date.now(), '[SSO] ' + m); } catch {}
-      setIsAuthenticated(false); return;
+
+    if (!hasAuthCookies()) {
+      setIsAuthenticated(false);
+      return;
     }
+
+    if (isAuthSessionExpired(SESSION_TIMEOUT)) {
+      logout();
+      return;
+    }
+
     if (!isAuthenticated) return;
 
     resetTimer();
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
     const handleActivity = () => {
-      if (hasAuthCookies()) touchAuthSessionStart();
-      if (hasSsoSession()) touchSsoSessionStart();
+      touchAuthSessionStart();
       resetTimer();
     };
     events.forEach((e) => window.addEventListener(e, handleActivity));
@@ -151,11 +104,9 @@ export function AuthProvider({ children }) {
 
   const [cockpitReady, setCockpitReady] = useState(false);
 
-  if (!ready) return null;
-
   return (
     <AuthContext.Provider value={{
-      isAuthenticated, userId, googleConnected, ssoLoggedOut,
+      isAuthenticated, userId, googleConnected,
       login, logout: () => logout(userId), setGoogleConnected,
       cockpitReady, setCockpitReady,
     }}>
