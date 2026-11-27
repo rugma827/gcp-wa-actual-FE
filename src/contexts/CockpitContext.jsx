@@ -26,9 +26,15 @@ export function CockpitProvider({ children }) {
     onRefreshBoth: refreshBoth,
   });
 
-  // Pre-fetch auth URL when not connected
+  // Pre-fetch auth URL when not connected — on mount and on disconnect
+  const prevConnectedRef = useRef(null);
   useEffect(() => {
-    if (!googleConnected) prefetchAuthUrl();
+    console.log('[CockpitContext] googleConnected:', googleConnected, 'prev:', prevConnectedRef.current);
+    if (!googleConnected && prevConnectedRef.current !== false) {
+      console.log('[CockpitContext] calling prefetchAuthUrl');
+      prefetchAuthUrl();
+    }
+    prevConnectedRef.current = googleConnected;
   }, [googleConnected]);
 
   // Auto-close session banner when reconnected

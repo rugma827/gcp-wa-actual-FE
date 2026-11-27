@@ -33,7 +33,7 @@ export default function GoogleConnect() {
     // Backend unreachable
     if (!res.ok && !res.authRequired) {
       setStatus('error');
-      setErrorMsg(res.error);
+      setErrorMsg(res.error || 'Could not reach the service. Please retry.');
       return;
     }
 
@@ -44,15 +44,12 @@ export default function GoogleConnect() {
       return;
     }
 
-    // Unauthenticated — need auth URL to proceed
+    // Unauthenticated — extract auth URL
     const url = res.authUrl || res.data?.authorization_url || null;
-    if (!url) {
-      setStatus('error');
-      setErrorMsg(res.error || 'Could not retrieve Google authorization URL. Please retry.');
-      return;
-    }
     setAuthUrl(url);
-    setStatus('idle');
+    setStatus('idle'); // show connect button regardless — button is disabled if url is null
+    // If URL not in this response, retry once after a short delay
+    if (!url) setTimeout(silentCheck, 2000);
   }
 
   function stopPolling() {

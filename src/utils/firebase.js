@@ -56,4 +56,23 @@ export async function refreshFirebaseToken() {
   }
 }
 
+/**
+ * Verify a Firebase ID token passed via URL param.
+ * Decodes JWT locally — checks aud matches project and token is not expired.
+ * Does NOT make a network call.
+ */
+export function verifyUrlIdToken(idToken) {
+  try {
+    const payload = JSON.parse(atob(idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const now = Math.floor(Date.now() / 1000);
+    console.log('[SSO] verifyUrlIdToken — aud:', payload.aud, 'exp:', payload.exp, 'now:', now, 'valid:', payload.aud === import.meta.env.VITE_FIREBASE_PROJECT_ID && payload.exp > now);
+    if (payload.aud !== import.meta.env.VITE_FIREBASE_PROJECT_ID) return { valid: false };
+    if (payload.exp <= now) return { valid: false };
+    return { valid: true };
+  } catch (e) {
+    console.log('[SSO] verifyUrlIdToken — decode error:', e.message);
+    return { valid: false };
+  }
+}
+
 export { auth };

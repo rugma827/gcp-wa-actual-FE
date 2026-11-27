@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, Eye, EyeOff } from "lucide-react";
+import { Sun, Moon, Eye, EyeOff, LogOut } from "lucide-react";
 import { useTheme } from "../../hooks/useTheme";
 import { useAuth } from "../../contexts/AuthContext";
 import { signInWithFirebase } from "../../utils/firebase";
@@ -13,7 +13,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const { login } = useAuth();
+  const { login, ssoLoggedOut } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -73,6 +73,22 @@ export default function Login() {
       setIsSubmitting(false);
     }
   };
+
+  if (ssoLoggedOut) {
+    return (
+      <div className="auth-container" data-theme={theme}>
+        <div className="auth-background" />
+        <div className="auth-card" style={{ textAlign: 'center', gap: '16px' }}>
+          <LogOut size={36} style={{ color: '#64748B', margin: '0 auto' }} />
+          <h2 className="auth-welcome">Session Ended</h2>
+          <p className="auth-subtitle">You have been signed out.<br />Please return to the main application to launch again.</p>
+          <footer className="auth-footer" style={{ marginTop: '24px' }}>
+            <span>© 2026 Wealth Management</span>
+          </footer>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-container" data-theme={theme}>

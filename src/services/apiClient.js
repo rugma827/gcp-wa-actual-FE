@@ -11,13 +11,20 @@
  */
 
 import { API_BASE_URL } from '../config/api';
-import { getFirebaseToken, getSessionId, clearAuthCookies, clearLegacyAuthStorage } from '../utils/authCookies';
+import { getFirebaseToken, getSessionId, clearAuthCookies, clearLegacyAuthStorage, hasSsoSession, isSsoSessionExpired } from '../utils/authCookies';
 import requestManager from './requestManager';
 import requestQueue from './requestQueue';
+
+const SESSION_TIMEOUT = 30 * 60 * 1000;
 
 let _sessionInvalidating = false;
 function handleSessionInvalidated() {
   if (_sessionInvalidating) return;
+  // If a valid SSO session exists, don't redirect — SSO token is managed separately
+  if (hasSsoSession() && !isSsoSessionExpired(SESSION_TIMEOUT)) {
+    console.log('[SSO] apiClient.js handleSessionInvalidated — SSO session valid, skipping redirect');
+    return;
+  }
   _sessionInvalidating = true;
   clearAuthCookies();
   clearLegacyAuthStorage();

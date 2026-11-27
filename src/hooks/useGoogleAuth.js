@@ -11,15 +11,15 @@ export function useGoogleAuth({ userId, setGoogleConnected, setSessionExpiredBan
   // Pre-fetch the auth URL as soon as we know we're not connected
   // so the Connect button can open the popup synchronously (no await before window.open)
   async function prefetchAuthUrl() {
-    // If userId not ready yet, still try to get the auth URL — checkAuth handles empty userId gracefully
+    console.log('[useGoogleAuth] prefetchAuthUrl called, userId:', userId);
     const res = await checkAuth(userId || 'anonymous');
-    if (!res.ok && !res.authRequired) return; // backend unreachable — ignore
-    if (res.ok && res.data?.status === 'authenticated') {
-      setGoogleConnected(true);
-      if (onRefreshBoth) onRefreshBoth();
+    console.log('[useGoogleAuth] checkAuth response:', JSON.stringify(res));
+    if (!res.ok && !res.authRequired) {
+      console.log('[useGoogleAuth] backend unreachable, skipping');
       return;
     }
     const url = res.authUrl || res.data?.authorization_url || null;
+    console.log('[useGoogleAuth] authUrl extracted:', url ? url.slice(0, 60) + '...' : null);
     if (url) setAuthUrl(url);
   }
 

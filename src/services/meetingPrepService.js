@@ -1,23 +1,28 @@
 import { MEETING_PREP_API_URL } from '../config/api';
-import { getFirebaseToken } from '../utils/authCookies';
+import { getFirebaseToken, updateAuthTokens } from '../utils/authCookies';
+import { refreshFirebaseToken } from '../utils/firebase';
 
 const BASE = MEETING_PREP_API_URL;
 const TIMEOUT_MS = 300_000;
 
-async function post(path, body) {
-  if (body?.user_id !== undefined && !body.user_id) {
-    return {
-      ok: false,
-      status: 401,
-      authRequired: true,
-      authUrl: null,
-      error: 'Not logged in. Please sign in first.',
-    };
-  }
+async function getValidToken() {
+  let token = getFirebaseToken();
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if ((payload.exp * 1000) - Date.now() < 5 * 60 * 1000) {
+      const refreshed = await refreshFirebaseToken();
+      if (refreshed) { updateAuthTokens(refreshed); token = refreshed.idToken; }
+    }
+  } catch { /* use existing token */ }
+  return token;
+}
 
+async function post(path, body) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  const token = getFirebaseToken();
+  const token = await getValidToken();
+  console.log('[meetingPrepService] POST', path, '| token present:', !!token, '| body:', JSON.stringify(body));
   try {
     const res = await fetch(`${BASE}${path}`, {
       method: 'POST',
@@ -31,13 +36,13 @@ async function post(path, body) {
     clearTimeout(timer);
     if (res.status === 401) {
       const detail = await res.json().catch(() => ({}));
-      return {
-        ok: false,
-        status: 401,
-        authRequired: true,
-        authUrl: detail?.detail?.authorization_url || null,
-        error: 'Google authorization required.',
-      };
+      console.log('[meetingPrepService] 401 detail:', JSON.stringify(detail));
+      const authUrl = detail?.detail?.authorization_url || null;
+      // If no authorization_url, this is a Firebase auth failure (expired/missing JWT), not a Google Calendar auth
+      if (!authUrl && !detail?.detail?.status) {
+        return { ok: false, status: 401, authRequired: false, authUrl: null, error: detail?.detail || 'Authentication required.' };
+      }
+      return { ok: false, status: 401, authRequired: true, authUrl, error: 'Google authorization required.' };
     }
     if (!res.ok) {
       const detail = await res.json().catch(() => ({}));

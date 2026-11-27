@@ -4,10 +4,18 @@ import ThemeController from './controllers/ThemeController';
 import App from './App.jsx';
 import { getFirebaseToken, getSessionId, isAccessTokenExpired, updateAuthTokens, clearAuthCookies, clearLegacyAuthStorage } from './utils/authCookies';
 import { refreshFirebaseToken } from './utils/firebase';
+import { hasSsoSession, isSsoSessionExpired } from './utils/authCookies';
+
+const SESSION_TIMEOUT = 30 * 60 * 1000;
 
 let _sessionInvalidating = false;
 function handleSessionInvalidated() {
   if (_sessionInvalidating) return;
+  // If a valid SSO session exists, don't redirect — SSO token is managed separately
+  if (hasSsoSession() && !isSsoSessionExpired(SESSION_TIMEOUT)) {
+    console.log('[SSO] main.jsx handleSessionInvalidated — SSO session valid, skipping redirect');
+    return;
+  }
   _sessionInvalidating = true;
   clearAuthCookies();
   clearLegacyAuthStorage();
@@ -21,8 +29,10 @@ window.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : input?.url || '';
   const isBackend = url.includes('localhost:8000') || url.includes('wealth-advisory') || url.includes('.run.app');
   if (isBackend) {
-    // Proactively refresh token if expired or expiring within 60s
-    if (isAccessTokenExpired()) {
+    // SSO users don't have Firebase cookies — skip proactive refresh for them
+    const isSsoValid = hasSsoSession() && !isSsoSessionExpired(SESSION_TIMEOUT);
+    console.log('[SSO] fetch interceptor — url:', url, '| isSsoValid:', isSsoValid, '| isAccessTokenExpired:', isAccessTokenExpired());
+    if (!isSsoValid && isAccessTokenExpired()) {
       const refreshed = await refreshFirebaseToken();
         if (refreshed) {
           updateAuthTokens(refreshed);
